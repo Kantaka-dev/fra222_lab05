@@ -44,9 +44,8 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
-DMA_HandleTypeDef hdma_tim1_ch1;
+DMA_HandleTypeDef hdma_tim2_ch1;
 
 UART_HandleTypeDef huart2;
 
@@ -54,17 +53,20 @@ UART_HandleTypeDef huart2;
 
 //12 P/R , Gear reduction 1 : 64
 //DMA Buffer
-uint16_t capturedata[CAPTURENUM] = { 0 };
+uint32_t capturedata[CAPTURENUM] = { 0 };
+
 //diff time of capture data
-int32_t DiffTime[CAPTURENUM-1] = { 0 };
+int64_t DiffTime[CAPTURENUM-1] = { 0 };
+
 //Mean difftime
-float MeanTime =0;
+float MeanTime = 0;
 
-
-
+//Mean speed (rpm)
+float MeanRPM = 0;
 
 //for microsecond measurement
-uint64_t _micros =0;
+uint64_t _micros = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,13 +75,14 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_TIM11_Init(void);
-static void MX_TIM10_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
+
 //Read speed of encoder
 void encoderSpeedReaderCycle();
 uint64_t micros();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,22 +121,25 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
-  MX_TIM2_Init();
   MX_TIM11_Init();
-  MX_TIM10_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  	  //start Microsec timer
+
+  	//start Microsec timer
 	HAL_TIM_Base_Start_IT(&htim11);
+
 	//start Input capture in DMA
-	HAL_TIM_Base_Start(&htim1);
-	HAL_TIM_IC_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*) &capturedata,
-			CAPTURENUM);
-	uint64_t timestamp =0;
+	HAL_TIM_Base_Start(&htim2);
+	HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, (uint32_t*) &capturedata, CAPTURENUM);
+
+	uint64_t timestamp = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+
 		//read Time of encoder
 		encoderSpeedReaderCycle();
 
@@ -142,7 +148,6 @@ int main(void)
 			timestamp = micros();
 			HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);
 		}
-
 
     /* USER CODE END WHILE */
 
@@ -266,6 +271,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_IC_InitTypeDef sConfigIC = {0};
 
@@ -273,11 +279,20 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 99;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
@@ -303,37 +318,6 @@ static void MX_TIM2_Init(void)
 }
 
 /**
-  * @brief TIM10 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM10_Init(void)
-{
-
-  /* USER CODE BEGIN TIM10_Init 0 */
-
-  /* USER CODE END TIM10_Init 0 */
-
-  /* USER CODE BEGIN TIM10_Init 1 */
-
-  /* USER CODE END TIM10_Init 1 */
-  htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 0;
-  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 65535;
-  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM10_Init 2 */
-
-  /* USER CODE END TIM10_Init 2 */
-
-}
-
-/**
   * @brief TIM11 Initialization Function
   * @param None
   * @retval None
@@ -353,7 +337,7 @@ static void MX_TIM11_Init(void)
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim11.Init.Period = 65535;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
   {
     Error_Handler();
@@ -404,12 +388,12 @@ static void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
-  __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA2_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
 
 }
 
@@ -447,26 +431,29 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 void encoderSpeedReaderCycle() {
 	//get DMA Position form number of data
-	uint32_t CapPos =CAPTURENUM -  __HAL_DMA_GET_COUNTER(htim1.hdma[TIM_DMA_ID_CC1]);
-	uint32_t sum = 0 ;
+	uint32_t CapPos = CAPTURENUM - __HAL_DMA_GET_COUNTER(htim2.hdma[TIM_DMA_ID_CC1]);
+	uint32_t sum = 0;
 
 	//calculate diff from all buffer
-	for(register int i=0 ;i < CAPTURENUM-1;i++)
+	for(register int i=0; i < CAPTURENUM-1; i++)
 	{
-		DiffTime[i]  = capturedata[(CapPos+1+i)%CAPTURENUM]-capturedata[(CapPos+i)%CAPTURENUM];
+		DiffTime[i]  = capturedata[(CapPos+1+i)%CAPTURENUM] - capturedata[(CapPos+i)%CAPTURENUM];
 		//time never go back, but timer can over flow , conpensate that
-		if (DiffTime[i] <0)
+		if (DiffTime[i] < 0)
 		{
-			DiffTime[i]+=65535;
+			DiffTime[i] += 4294967295;
 		}
 		//Sum all 15 Diff
 		sum += DiffTime[i];
 	}
 
 	//mean all 15 Diff
-	MeanTime =sum / (float)(CAPTURENUM-1);
+	MeanTime = sum / (float)(CAPTURENUM-1); // n timer period / 1 pulse
+
+	MeanRPM = 1.0/MeanTime /12.0 /64.0 *1000000.0 *60.0; // 12pulse/rev and gear ratio 64 and 1MHz/s and 60s/min => RPM
 }
 uint64_t micros()
 {
@@ -474,11 +461,12 @@ uint64_t micros()
 }
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
- if(htim == &htim11)
- {
-	 _micros += 65535;
- }
+	if(htim == &htim11)
+	{
+		_micros += 65535;
+	}
 }
+
 /* USER CODE END 4 */
 
 /**
