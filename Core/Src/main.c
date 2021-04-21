@@ -435,7 +435,7 @@ static void MX_GPIO_Init(void)
 void encoderSpeedReaderCycle() {
 	//get DMA Position form number of data
 	uint32_t CapPos = CAPTURENUM - __HAL_DMA_GET_COUNTER(htim2.hdma[TIM_DMA_ID_CC1]);
-	uint32_t sum = 0;
+	uint64_t sum = 0;
 
 	//calculate diff from all buffer
 	for(register int i=0; i < CAPTURENUM-1; i++)
@@ -446,7 +446,7 @@ void encoderSpeedReaderCycle() {
 		{
 			DiffTime[i] += 4294967295;
 		}
-		//Sum all 15 Diff
+		//sum all 15 Diff
 		sum += DiffTime[i];
 	}
 
@@ -455,6 +455,7 @@ void encoderSpeedReaderCycle() {
 
 	MeanRPM = 1.0/MeanTime /12.0 /64.0 *1000000.0 *60.0; // 12pulse/rev and gear ratio 64 and 1MHz/s and 60s/min => RPM
 }
+
 uint64_t micros()
 {
 	return _micros + htim11.Instance->CNT;
