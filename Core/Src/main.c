@@ -144,7 +144,7 @@ int main(void)
 		//read Time of encoder
 		encoderSpeedReaderCycle();
 
-		if(micros()-timestamp > 500000)
+		if(micros()-timestamp > 100000) //using period 2*100000us == 5Hz
 		{
 			timestamp = micros();
 			HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);

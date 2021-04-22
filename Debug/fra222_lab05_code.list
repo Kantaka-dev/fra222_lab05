@@ -1299,7 +1299,7 @@ int main(void)
 		encoderSpeedReaderCycle();
  8000f8a:	f000 fa2d 	bl	80013e8 <encoderSpeedReaderCycle>
 
-		if(micros()-timestamp > 500000)
+		if(micros()-timestamp > 100000) //using period 2*100000us == 5Hz
  8000f8e:	f000 fae5 	bl	800155c <micros>
  8000f92:	460a      	mov	r2, r1
  8000f94:	4601      	mov	r1, r0
@@ -1328,7 +1328,7 @@ int main(void)
  8000fc8:	200000f0 	.word	0x200000f0
  8000fcc:	200001d8 	.word	0x200001d8
  8000fd0:	2000002c 	.word	0x2000002c
- 8000fd4:	0007a120 	.word	0x0007a120
+ 8000fd4:	000186a0 	.word	0x000186a0
  8000fd8:	40020000 	.word	0x40020000
 
 08000fdc <SystemClock_Config>:
